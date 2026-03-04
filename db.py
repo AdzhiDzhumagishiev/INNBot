@@ -156,18 +156,35 @@ async def rebuild_db_from_csv():
     logging.info("CSV rebuild started")
 
     # Read CSV fully into memory (needed for duplicate count + stable merge)
-    with open(CSV_PATH, "r", encoding="utf-8-sig", newline="") as f:
-        reader = csv.DictReader(f, delimiter=";")
-        fieldnames = reader.fieldnames or []
+    # Read CSV fully into memory (needed for duplicate count + stable merge)
+encodings_to_try = ["utf-8-sig", "cp1251", "utf-8"]
 
-        if "company_inn" not in fieldnames:
-            raise ValueError("В CSV нет колонки company_inn")
+last_err = None
+for enc in encodings_to_try:
+    try:
+        with open(CSV_PATH, "r", encoding=enc, newline="") as f:
+            reader = csv.DictReader(f, delimiter=";")
+            fieldnames = reader.fieldnames or []
+            if "company_inn" not in fieldnames:
+                raise ValueError("В CSV нет колонки company_inn")
 
-        director_pairs, founder_pairs = _discover_pairs(fieldnames)
-        if not director_pairs and not founder_pairs:
-            raise ValueError("Не найдены колонки director_*_phones и founder_*_phones")
+            director_pairs, founder_pairs = _discover_pairs(fieldnames)
+            if not director_pairs and not founder_pairs:
+                raise ValueError("Не найдены колонки director_*_phones и founder_*_phones")
 
-        rows = list(reader)
+            rows = list(reader)
+        last_err = None
+        break
+    except UnicodeDecodeError as e:
+        last_err = e
+
+if last_err:
+    raise UnicodeDecodeError(
+        last_err.encoding,
+        last_err.object,
+        last_err.start,
+        last_err.end,
+        f"{last_err.reason}. Попробуйте сохранить inn.csv в UTF-8 или CP1251.")
 
     # Duplicate INN check
     inn_counts: Dict[str, int] = {}
@@ -286,4 +303,5 @@ async def get_items_by_inn(inn: str) -> Optional[List[str]]:
             return [str(x) for x in items if str(x).strip()]
         return []
     except Exception:
+
         return []
