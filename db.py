@@ -162,7 +162,12 @@ encodings_to_try = ["utf-8-sig", "cp1251", "utf-8"]
 last_err = None
 for enc in encodings_to_try:
     try:
-        with open(CSV_PATH, "r", encoding=enc, newline="") as f:
+        try:
+    f = open(CSV_PATH, "r", encoding="utf-8-sig", newline="")
+except UnicodeDecodeError:
+    f = open(CSV_PATH, "r", encoding="cp1251", newline="")
+
+with f:
             reader = csv.DictReader(f, delimiter=";")
             fieldnames = reader.fieldnames or []
             if "company_inn" not in fieldnames:
@@ -305,3 +310,4 @@ async def get_items_by_inn(inn: str) -> Optional[List[str]]:
     except Exception:
 
         return []
+
